@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Business Tally System (Fixed Sync)</title>
+<title>Business Tally (Stable Sync)</title>
 
 <style>
   body { font-family: Arial; margin: 40px; background: #f4f6f9; }
@@ -11,21 +11,18 @@
   th { background: #007bff; color: white; }
   input, select { width: 100%; padding: 5px; }
   button { padding: 6px 10px; cursor: pointer; margin-right: 5px; }
-  .subtotal-row { background: #e9f7ef; font-weight: bold; }
-  .total-box { margin-top: 20px; text-align: right; font-size: 18px; }
-  .payment-summary { margin-top: 20px; font-size: 16px; }
 </style>
 </head>
 
 <body>
 
-<h1>Business Sales Tally (Stable Sync)</h1>
+<h1>Business Sales Tally (Cloud Sync)</h1>
 
-<button onclick="addCustomer()">Add Customer</button>
-<button onclick="exportToExcel()">Export toExcel</button>
-<button onclick="clearData()">Clear All</button>
+<button onclick="addRow()">Add Row</button>
+<button onclick="saveData()">Save</button>
+<button onclick="loadData()">Refresh</button>
 
-<table id="salesTable">
+<table id="table">
 <thead>
 <tr>
   <th>Name</th>
@@ -33,272 +30,134 @@
   <th>Qty</th>
   <th>Price</th>
   <th>Total</th>
-  <th>Mode of Payment</th>
-  <th>Action</th>
+  <th>Payment</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 
-<div class="total-box">
-<strong>Grand Total: ₱ <span id="grandTotal">0</span></strong>
-</div>
+<h3>Grand Total: ₱ <span id="grand">0</span></h3>
+<h3>Cash: ₱ <span id="cash">0</span></h3>
+<h3>GCash: ₱ <span id="gcash">0</span></h3>
+<h3>BPI: ₱ <span id="bpi">0</span></h3>
 
-<div class="payment-summary">
-<strong>Cash: ₱ <span id="cashTotal">0</span></strong><br>
-<strong>GCash: ₱ <span id="gcashTotal">0</span></strong><br>
-<strong>BPI: ₱ <span id="bpiTotal">0</span></strong>
-</div>
+<script>
+const BIN_ID = "YOUR_BIN_ID";
+const API_KEY = "YOUR_API_KEY";
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-/* 🔴 REPLACE THIS */
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-/* 🔥 CONTROL FLAGS */
-let isLocalChange = false;
-let saveTimer;
-
-/* PRODUCTS */
 const products = {
-  "Coke": 20,
-  "Pepsi": 18,
-  "Water": 10,
-  "Chips": 15
+  Coke: 20,
+  Pepsi: 18,
+  Water: 10,
+  Chips: 15
 };
 
-/* OPTIONS */
-function productOptions(selected="") {
-  let opt = '<option value="">Select</option>';
-  for (let p in products) {
-    opt += `<option value="${p}" ${selected===p?"selected":""}>${p}</option>`;
-  }
-  return opt;
+function addRow(data={}) {
+  const tr = document.createElement("tr");
+
+  tr.innerHTML = `
+    <td><input value="${data.name||""}"></td>
+    <td>
+      <select onchange="autoPrice(this)">
+        <option value="">Select</option>
+        ${Object.keys(products).map(p =>
+          `<option ${data.product===p?"selected":""}>${p}</option>`
+        ).join("")}
+      </select>
+    </td>
+    <td><input type="number" value="${data.qty||1}" oninput="calc(this)"></td>
+    <td><input type="number" value="${data.price||0}" oninput="calc(this)"></td>
+    <td class="total">0</td>
+    <td>
+      <select onchange="calcAll()">
+        <option></option>
+        <option ${data.payment==="Cash"?"selected":""}>Cash</option>
+        <option ${data.payment==="GCash"?"selected":""}>GCash</option>
+        <option ${data.payment==="BPI"?"selected":""}>BPI</option>
+      </select>
+    </td>
+  `;
+
+  document.querySelector("#table tbody").appendChild(tr);
+  calcAll();
 }
 
-function paymentOptions(selected="") {
-  return `
-    <select onchange="debounceSave(); calcPayments()">
-      <option value="">Select</option>
-      <option ${selected==="Cash"?"selected":""}>Cash</option>
-      <option ${selected==="GCash"?"selected":""}>GCash</option>
-      <option ${selected==="BPI"?"selected":""}>BPI</option>
-    </select>
-  `;
+function autoPrice(sel) {
+  const row = sel.closest("tr");
+  const p = sel.value;
+  if (products[p]) row.cells[3].children[0].value = products[p];
+  calc(row.cells[2]);
 }
 
-/* DEBOUNCE SAVE */
-function debounceSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveData, 500);
-}
-
-/* ADD CUSTOMER */
-window.addCustomer = function(data=null) {
-  const tbody = document.querySelector("#salesTable tbody");
-  const groupId = Date.now() + Math.random();
-
-  const row = tbody.insertRow();
-  row.dataset.group = groupId;
-
-  row.innerHTML = `
-    <td><input value="${data?.name||""}" oninput="debounceSave()"></td>
-    <td><select onchange="selectProduct(this); debounceSave()">${productOptions(data?.product)}</select></td>
-    <td><input type="number" value="${data?.qty||1}" oninput="calc(this); debounceSave()"></td>
-    <td><input type="number" value="${data?.price||0}" oninput="calc(this); debounceSave()"></td>
-    <td class="rowTotal">0</td>
-    <td>${paymentOptions(data?.payment)}</td>
-    <td><button onclick="addItem(this)">+ Item</button></td>
-  `;
-
-  const subtotalRow = tbody.insertRow();
-  subtotalRow.className = "subtotal-row";
-  subtotalRow.dataset.group = groupId;
-
-  subtotalRow.innerHTML = `
-    <td colspan="4">Customer Total</td>
-    <td class="customerTotal">0</td>
-    <td></td>
-    <td></td>
-  `;
-};
-
-/* ADD ITEM */
-window.addItem = function(btn) {
-  const groupId = btn.closest("tr").dataset.group;
-  const tbody = document.querySelector("#salesTable tbody");
-
-  const subtotalRow = [...tbody.rows].find(r => r.dataset.group == groupId && r.classList.contains("subtotal-row"));
-
-  const newRow = tbody.insertRow(subtotalRow.rowIndex - 1);
-  newRow.dataset.group = groupId;
-
-  newRow.innerHTML = `
-    <td></td>
-    <td><select onchange="selectProduct(this); debounceSave()">${productOptions()}</select></td>
-    <td><input type="number" value="1" oninput="calc(this); debounceSave()"></td>
-    <td><input type="number" value="0" oninput="calc(this); debounceSave()"></td>
-    <td class="rowTotal">0</td>
-    <td></td>
-    <td></td>
-  `;
-};
-
-/* SELECT PRODUCT */
-window.selectProduct = function(select) {
-  const row = select.closest("tr");
-  const product = select.value;
-  if (products[product]) {
-    row.cells[3].children[0].value = products[product];
-  }
-  calc(select);
-};
-
-/* CALCULATIONS */
-window.calc = function(input) {
+function calc(input) {
   const row = input.closest("tr");
-  const qty = row.cells[2].children[0].value;
-  const price = row.cells[3].children[0].value;
-
-  const total = qty * price;
-  row.cells[4].innerText = total.toFixed(2);
-
-  updateCustomerTotal(row.dataset.group);
-  calcGrand();
-  calcPayments();
-};
-
-function updateCustomerTotal(groupId) {
-  let subtotal = 0;
-  let subtotalRow;
-
-  document.querySelectorAll("#salesTable tbody tr").forEach(r => {
-    if (r.dataset.group == groupId) {
-      if (r.classList.contains("subtotal-row")) subtotalRow = r;
-      else subtotal += parseFloat(r.cells[4].innerText) || 0;
-    }
-  });
-
-  if (subtotalRow) {
-    subtotalRow.querySelector(".customerTotal").innerText = subtotal.toFixed(2);
-  }
+  const qty = +row.cells[2].children[0].value;
+  const price = +row.cells[3].children[0].value;
+  row.cells[4].innerText = (qty*price).toFixed(2);
+  calcAll();
 }
 
-function calcGrand() {
-  let total = 0;
-  document.querySelectorAll(".rowTotal").forEach(c => {
-    total += parseFloat(c.innerText) || 0;
-  });
-  document.getElementById("grandTotal").innerText = total.toFixed(2);
-}
+function calcAll() {
+  let grand=0, cash=0, gcash=0, bpi=0;
 
-function calcPayments() {
-  let cash=0, gcash=0, bpi=0;
+  document.querySelectorAll("#table tbody tr").forEach(r=>{
+    const total = +r.cells[4].innerText || 0;
+    const pay = r.cells[5].children[0].value;
 
-  document.querySelectorAll("#salesTable tbody tr").forEach(r => {
-    if (!r.classList.contains("subtotal-row")) {
-      const total = parseFloat(r.cells[4].innerText)||0;
-      const select = r.cells[5]?.querySelector("select");
-      if (!select) return;
-
-      if (select.value==="Cash") cash+=total;
-      if (select.value==="GCash") gcash+=total;
-      if (select.value==="BPI") bpi+=total;
-    }
+    grand += total;
+    if (pay==="Cash") cash+=total;
+    if (pay==="GCash") gcash+=total;
+    if (pay==="BPI") bpi+=total;
   });
 
-  document.getElementById("cashTotal").innerText = cash.toFixed(2);
-  document.getElementById("gcashTotal").innerText = gcash.toFixed(2);
-  document.getElementById("bpiTotal").innerText = bpi.toFixed(2);
+  document.getElementById("grand").innerText = grand.toFixed(2);
+  document.getElementById("cash").innerText = cash.toFixed(2);
+  document.getElementById("gcash").innerText = gcash.toFixed(2);
+  document.getElementById("bpi").innerText = bpi.toFixed(2);
 }
 
 /* SAVE */
 async function saveData() {
-  isLocalChange = true;
+  const data=[];
 
-  const data = [];
-
-  document.querySelectorAll("#salesTable tbody tr").forEach(r => {
-    if (!r.classList.contains("subtotal-row")) {
-      data.push({
-        name: r.cells[0].querySelector("input")?.value || "",
-        product: r.cells[1].querySelector("select")?.value || "",
-        qty: r.cells[2].querySelector("input")?.value || 1,
-        price: r.cells[3].querySelector("input")?.value || 0,
-        payment: r.cells[5].querySelector("select")?.value || ""
-      });
-    }
-  });
-
-  await setDoc(doc(db, "sales", "data"), { items: data });
-
-  setTimeout(() => isLocalChange = false, 300);
-}
-
-/* REAL-TIME LISTENER */
-function listenData() {
-  onSnapshot(doc(db, "sales", "data"), (docSnap) => {
-
-    if (isLocalChange) return;
-
-    const tbody = document.querySelector("#salesTable tbody");
-    tbody.innerHTML = "";
-
-    if (!docSnap.exists()) {
-      addCustomer();
-      return;
-    }
-
-    const data = docSnap.data().items;
-
-    data.forEach(d => addCustomer(d));
-
-    setTimeout(() => {
-      document.querySelectorAll("#salesTable tbody tr").forEach(r => {
-        if (!r.classList.contains("subtotal-row")) calc(r.cells[2]);
-      });
-    }, 100);
-  });
-}
-
-/* CLEAR */
-window.clearData = async function() {
-  await setDoc(doc(db, "sales", "data"), { items: [] });
-};
-
-/* EXPORT */
-window.exportToExcel = function() {
-  let csv=[];
-  document.querySelectorAll("#salesTable tr").forEach(row=>{
-    let cols=row.querySelectorAll("td,th");
-    let rowData=[];
-    cols.forEach(col=>{
-      let val=col.querySelector("input")?.value ||
-              col.querySelector("select")?.value ||
-              col.innerText;
-      rowData.push(val.replace(/,/g,""));
+  document.querySelectorAll("#table tbody tr").forEach(r=>{
+    data.push({
+      name: r.cells[0].children[0].value,
+      product: r.cells[1].children[0].value,
+      qty: r.cells[2].children[0].value,
+      price: r.cells[3].children[0].value,
+      payment: r.cells[5].children[0].value
     });
-    csv.push(rowData.join(","));
   });
 
-  const blob=new Blob([csv.join("\n")],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="sales.csv";
-  a.click();
-};
+  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Master-Key": API_KEY
+    },
+    body: JSON.stringify(data)
+  });
+
+  alert("Saved!");
+}
+
+/* LOAD */
+async function loadData() {
+  const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+    headers: { "X-Master-Key": API_KEY }
+  });
+
+  const json = await res.json();
+  const data = json.record;
+
+  document.querySelector("#table tbody").innerHTML = "";
+
+  data.forEach(d=>addRow(d));
+}
 
 /* INIT */
-listenData();
+loadData();
 </script>
 
 </body>
