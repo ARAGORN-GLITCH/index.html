@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Business Tally System</title>
+<style>
+  body { font-family: Arial; margin: 40px; background: #f4f6f9; }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th, td { padding: 10px; border: 1px solid #ddd; text-align: center; }
+  th { background: #007bff; color: white; }
+  input, select { width: 100%; padding: 5px; }
+  button { padding: 6px 10px; cursor: pointer; margin-right: 5px; }
+  .subtotal-row { background: #e9f7ef; font-weight: bold; }
+  .total-box { margin-top: 20px; text-align: right; font-size: 18px; }
+  .payment-summary { margin-top: 20px; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Business Sales Tally</h1>
+
+<button onclick="addCustomer()">Add Customer</button>
+<button onclick="exportToExcel()">Export to Excel</button>
+<button onclick="clearData()">Clear All</button>
+
+<table id="salesTable">
+<thead>
+<tr>
+  <th>Name</th>
+  <th>Product</th>
+  <th>Qty</th>
+  <th>Price</th>
+  <th>Total</th>
+  <th>Mode of Payment</th>
+  <th>Action</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<div class="total-box">
+<strong>Grand Total: ₱ <span id="grandTotal">0</span></strong>
+</div>
+
+<div class="payment-summary">
+<strong>Cash: ₱ <span id="cashTotal">0</span></strong><br>
+<strong>GCash: ₱ <span id="gcashTotal">0</span></strong><br>
+<strong>BPI: ₱ <span id="bpiTotal">0</span></strong>
+</div>
+
+<script>
+const products = {
+  "Coke": 20,
+  "Pepsi": 18,
+  "Water": 10,
+  "Chips": 15
+};
+
+function productOptions() {
+  let opt = '<option value="">Select</option>';
+  for (let p in products) {
+    opt += `<option value="${p}">${p}</option>`;
+  }
+  return opt;
+}
+
+function paymentOptions(selected="") {
+  return `
+    <select onchange="saveData(); calcPayments()">
+      <option value="">Select</option>
+      <option ${selected==="Cash"?"selected":""}>Cash</option>
+      <option ${selected==="GCash"?"selected":""}>GCash</option>
+      <option ${selected==="BPI"?"selected":""}>BPI</option>
+    </select>
+  `;
+}
+
+function addCustomer(data=null) {
+  const tbody = document.querySelector("#salesTable tbody");
+  const groupId = Date.now();
+
+  const row = tbody.insertRow();
+  row.dataset.group = groupId;
+
+  row.innerHTML = `
+    <td><input value="${data?.name||""}" oninput="saveData()"></td>
+    <td><select onchange="selectProduct(this); saveData()">${productOptions()}</select></td>
+    <td><input type="number" value="${data?.qty||1}" oninput="calc(this); saveData()"></td>
+    <td><input type="number" value="${data?.price||0}" oninput="calc(this); saveData()"></td>
+    <td class="rowTotal">0</td>
+    <td>${paymentOptions(data?.payment)}</td>
+    <td><button onclick="addItem(this)">+ Item</button></td>
+  `;
+
+  const subtotalRow = tbody.insertRow();
+  subtotalRow.className = "subtotal-row";
+  subtotalRow.dataset.group = groupId;
+
+  subtotalRow.innerHTML = `
+    <td colspan="4">Customer Total</td>
+    <td class="customerTotal">0</td>
+    <td></td>
+    <td></td>
+  `;
+}
+
+function findSubtotalRow(groupId) {
+  return [...document.querySelectorAll("#salesTable tbody tr")]
+    .find(r => r.dataset.group == groupId && r.classList.contains("subtotal-row"));
+}
+
+function addItem(btn) {
+  const groupId = btn.closest("tr").dataset.group;
+  const tbody = document.querySelector("#salesTable tbody");
+  const subtotalRow = findSubtotalRow(groupId);
+
+  const newRow = tbody.insertRow(subtotalRow.rowIndex - 1);
+  newRow.dataset.group = groupId;
+
+  newRow.innerHTML = `
+    <td></td>
+    <td><select onchange="selectProduct(this); saveData()">${productOptions()}</select></td>
+    <td><input type="number" value="1" oninput="calc(this); saveData()"></td>
+    <td><input type="number" value="0" oninput="calc(this); saveData()"></td>
+    <td class="rowTotal">0</td>
+    <td></td>
+    <td></td>
+  `;
+}
+
+function selectProduct(select) {
+  const row = select.closest("tr");
+  const product = select.value;
+  if (products[product]) {
+    row.cells[3].children[0].value = products[product];
+  }
+  calc(select);
+}
+
+function calc(input) {
+  const row = input.closest("tr");
+  const qty = row.cells[2].children[0].value;
+  const price = row.cells[3].children[0].value;
+
+  const total = qty * price;
+  row.cells[4].innerText = total.toFixed(2);
+
+  updateCustomerTotal(row.dataset.group);
+  calcGrand();
+  calcPayments();
+}
+
+function updateCustomerTotal(groupId) {
+  let subtotal = 0;
+  let subtotalRow;
+
+  document.querySelectorAll("#salesTable tbody tr").forEach(r => {
+    if (r.dataset.group == groupId) {
+      if (r.classList.contains("subtotal-row")) subtotalRow = r;
+      else subtotal += parseFloat(r.cells[4].innerText) || 0;
+    }
+  });
+
+  if (subtotalRow) {
+    subtotalRow.querySelector(".customerTotal").innerText = subtotal.toFixed(2);
+  }
+}
+
+function calcGrand() {
+  let total = 0;
+  document.querySelectorAll(".rowTotal").forEach(c => {
+    total += parseFloat(c.innerText) || 0;
+  });
+  document.getElementById("grandTotal").innerText = total.toFixed(2);
+}
+
+function calcPayments() {
+  let cash=0, gcash=0, bpi=0;
+
+  document.querySelectorAll("#salesTable tbody tr").forEach(r => {
+    if (!r.classList.contains("subtotal-row")) {
+      const total = parseFloat(r.cells[4].innerText)||0;
+      const paymentCell = r.cells[5];
+      if (!paymentCell) return;
+
+      const select = paymentCell.querySelector("select");
+      if (!select) return;
+
+      if (select.value==="Cash") cash+=total;
+      if (select.value==="GCash") gcash+=total;
+      if (select.value==="BPI") bpi+=total;
+    }
+  });
+
+  document.getElementById("cashTotal").innerText = cash.toFixed(2);
+  document.getElementById("gcashTotal").innerText = gcash.toFixed(2);
+  document.getElementById("bpiTotal").innerText = bpi.toFixed(2);
+}
+
+// SAVE & LOAD
+function saveData() {
+  const data = [];
+  document.querySelectorAll("#salesTable tbody tr").forEach(r => {
+    if (!r.classList.contains("subtotal-row")) {
+      data.push({
+        name: r.cells[0].querySelector("input")?.value || "",
+        product: r.cells[1].querySelector("select")?.value || "",
+        qty: r.cells[2].querySelector("input")?.value || 1,
+        price: r.cells[3].querySelector("input")?.value || 0,
+        payment: r.cells[5].querySelector("select")?.value || ""
+      });
+    }
+  });
+  localStorage.setItem("salesData", JSON.stringify(data));
+}
+
+function loadData() {
+  const data = JSON.parse(localStorage.getItem("salesData")||"[]");
+  if (data.length===0) return addCustomer();
+
+  data.forEach(d => addCustomer(d));
+}
+
+function clearData() {
+  localStorage.removeItem("salesData");
+  location.reload();
+}
+
+// EXPORT
+function exportToExcel() {
+  let csv=[];
+  document.querySelectorAll("#salesTable tr").forEach(row=>{
+    let cols=row.querySelectorAll("td,th");
+    let rowData=[];
+    cols.forEach(col=>{
+      let val=col.querySelector("input")?.value ||
+              col.querySelector("select")?.value ||
+              col.innerText;
+      rowData.push(val.replace(/,/g,""));
+    });
+    csv.push(rowData.join(","));
+  });
+
+  const blob=new Blob([csv.join("\n")],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="sales.csv";
+  a.click();
+}
+
+// INIT
+loadData();
+</script>
+
+</body>
+</html>
