@@ -1,228 +1,190 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Business Tally (Auto Sync Stable)</title>
+<title>Stable POS System</title>
 
 <style>
-  body { font-family: Arial; margin: 40px; background: #f4f6f9; }
-  table { width: 100%; border-collapse: collapse; background: #fff; }
-  th, td { padding: 10px; border: 1px solid #ddd; text-align: center; }
-  th { background: #007bff; color: white; }
-  input, select { width: 100%; padding: 5px; }
-  .subtotal { background: #dff0d8; font-weight: bold; }
+body { font-family: Arial; margin:40px; }
+table { width:100%; border-collapse: collapse; }
+th,td { border:1px solid #ddd; padding:8px; text-align:center; }
+th { background:#007bff; color:white; }
+.subtotal { background:#dff0d8; font-weight:bold; }
 </style>
 </head>
 
 <body>
 
-<h1>Business Sales Tally (Auto Sync)</h1>
+<h2>Stable POS (No Disappearing)</h2>
 
 <button onclick="addCustomer()">Add Customer</button>
-<button onclick="saveData()">Save</button>
 
 <table id="table">
 <thead>
 <tr>
-  <th>Name</th>
-  <th>Product</th>
-  <th>Qty</th>
-  <th>Price</th>
-  <th>Total</th>
-  <th>Payment</th>
-  <th>Received</th>
-  <th>Change</th>
-  <th>Action</th>
+<th>Name</th><th>Product</th><th>Qty</th><th>Price</th>
+<th>Total</th><th>Payment</th><th>Received</th><th>Change</th><th>Action</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 
-<h3>Grand Total: ₱ <span id="grand">0</span></h3>
-<h3>Cash: ₱ <span id="cash">0</span></h3>
-<h3>GCash: ₱ <span id="gcash">0</span></h3>
-<h3>BPI: ₱ <span id="bpi">0</span></h3>
+<h3>Grand: ₱ <span id="grand">0</span></h3>
 
 <script>
-const BIN_ID = "YOUR_BIN_ID";
-const API_KEY = "YOUR_API_KEY";
+const BIN_ID="YOUR_BIN_ID";
+const API_KEY="YOUR_API_KEY";
 
-let isEditing = false;
+let isEditing=false;
 
-const products = {
-  Coke: 20,
-  Pepsi: 18,
-  Water: 10,
-  Chips: 15
-};
+/* PRODUCTS */
+const products={Coke:20,Pepsi:18,Water:10,Chips:15};
 
 /* ADD CUSTOMER */
-function addCustomer() {
-  const id = Date.now();
-  addItemRow(id);
+function addCustomer(){
+  const id=Date.now();
+  addItem(id);
 
-  const subtotal = document.createElement("tr");
-  subtotal.className = "subtotal";
-  subtotal.dataset.group = id;
-  subtotal.innerHTML = `
-    <td colspan="4">Customer Total</td>
-    <td class="subtotalValue">0</td>
-    <td></td><td></td><td></td><td></td>
-  `;
-  document.querySelector("#table tbody").appendChild(subtotal);
+  const sub=document.createElement("tr");
+  sub.className="subtotal";
+  sub.dataset.group=id;
+  sub.innerHTML=`<td colspan="4">Customer Total</td>
+  <td class="subVal">0</td><td colspan="4"></td>`;
+  tableBody().appendChild(sub);
 }
 
 /* ADD ITEM */
-function addItemRow(groupId, data={}) {
-  const tbody = document.querySelector("#table tbody");
+function addItem(group,data={}){
+  const row=document.createElement("tr");
+  row.dataset.group=group;
 
-  const row = document.createElement("tr");
-  row.dataset.group = groupId;
-
-  row.innerHTML = `
-    <td><input value="${data.name||""}" onfocus="isEditing=true" onblur="isEditing=false"></td>
-    <td>
-      <select onchange="autoPrice(this)">
-        <option></option>
-        ${Object.keys(products).map(p =>
-          `<option ${data.product===p?"selected":""}>${p}</option>`
-        ).join("")}
-      </select>
-    </td>
-    <td><input type="number" value="${data.qty||1}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
-    <td><input type="number" value="${data.price||0}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
-    <td class="total">0</td>
-    <td>
-      <select onchange="calcAll()">
-        <option></option>
-        <option ${data.payment==="Cash"?"selected":""}>Cash</option>
-        <option ${data.payment==="GCash"?"selected":""}>GCash</option>
-        <option ${data.payment==="BPI"?"selected":""}>BPI</option>
-      </select>
-    </td>
-    <td><input type="number" value="${data.received||0}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
-    <td class="change">0</td>
-    <td><button onclick="addItemRow(${groupId})">+ Item</button></td>
+  row.innerHTML=`
+  <td><input value="${data.name||""}" onfocus="isEditing=true" onblur="isEditing=false;saveLocal()"></td>
+  <td><select onchange="setPrice(this)">
+    <option></option>
+    ${Object.keys(products).map(p=>`<option ${data.product==p?"selected":""}>${p}</option>`)}
+  </select></td>
+  <td><input type="number" value="${data.qty||1}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
+  <td><input type="number" value="${data.price||0}" oninput="calc(this)"></td>
+  <td class="total">0</td>
+  <td><select onchange="calcAll()">
+    <option></option><option>Cash</option><option>GCash</option><option>BPI</option>
+  </select></td>
+  <td><input type="number" value="${data.received||0}" oninput="calc(this)"></td>
+  <td class="change">0</td>
+  <td><button onclick="addItem(${group})">+</button></td>
   `;
 
-  const subtotal = [...tbody.children].find(r =>
-    r.classList.contains("subtotal") && r.dataset.group == groupId
-  );
-
-  if (subtotal) tbody.insertBefore(row, subtotal);
-  else tbody.appendChild(row);
+  const sub=findSubtotal(group);
+  if(sub) tableBody().insertBefore(row,sub);
+  else tableBody().appendChild(row);
 }
 
-/* CALCULATIONS */
-function calc(input) {
-  const row = input.closest("tr");
-  const qty = +row.cells[2].children[0].value;
-  const price = +row.cells[3].children[0].value;
-  const received = +row.cells[6].children[0].value;
+/* HELPERS */
+function tableBody(){return document.querySelector("#table tbody");}
+function findSubtotal(g){
+  return [...tableBody().children].find(r=>r.dataset.group==g && r.classList.contains("subtotal"));
+}
 
-  const total = qty * price;
-  const change = received - total;
+/* CALC */
+function setPrice(sel){
+  const row=sel.closest("tr");
+  if(products[sel.value]) row.cells[3].children[0].value=products[sel.value];
+  calc(row.cells[2]);
+}
 
-  row.cells[4].innerText = total.toFixed(2);
-  row.cells[7].innerText = change.toFixed(2);
-  row.cells[7].style.color = change < 0 ? "red" : "green";
+function calc(input){
+  const r=input.closest("tr");
+  const qty=+r.cells[2].children[0].value;
+  const price=+r.cells[3].children[0].value;
+  const rec=+r.cells[6].children[0].value;
 
-  updateSubtotal(row.dataset.group);
+  const total=qty*price;
+  const change=rec-total;
+
+  r.cells[4].innerText=total.toFixed(2);
+  r.cells[7].innerText=change.toFixed(2);
+  r.cells[7].style.color=change<0?"red":"green";
+
+  updateSub(r.dataset.group);
   calcAll();
+  saveLocal();
 }
 
-function updateSubtotal(groupId) {
-  let sum = 0;
-  let subtotal;
-
-  document.querySelectorAll("#table tbody tr").forEach(r=>{
-    if (r.dataset.group == groupId) {
-      if (r.classList.contains("subtotal")) subtotal = r;
-      else sum += +r.cells[4].innerText || 0;
+function updateSub(g){
+  let sum=0,sub;
+  tableBody().querySelectorAll("tr").forEach(r=>{
+    if(r.dataset.group==g){
+      if(r.classList.contains("subtotal")) sub=r;
+      else sum+=+r.cells[4].innerText||0;
     }
   });
-
-  if (subtotal)
-    subtotal.querySelector(".subtotalValue").innerText = sum.toFixed(2);
+  if(sub) sub.querySelector(".subVal").innerText=sum.toFixed(2);
 }
 
-function calcAll() {
-  let grand=0, cash=0, gcash=0, bpi=0;
-
-  document.querySelectorAll("#table tbody tr").forEach(r=>{
-    if (!r.classList.contains("subtotal")) {
-      const total = +r.cells[4].innerText || 0;
-      const pay = r.cells[5].children[0].value;
-
-      grand += total;
-      if (pay==="Cash") cash+=total;
-      if (pay==="GCash") gcash+=total;
-      if (pay==="BPI") bpi+=total;
-    }
-  });
-
-  document.getElementById("grand").innerText = grand.toFixed(2);
-  document.getElementById("cash").innerText = cash.toFixed(2);
-  document.getElementById("gcash").innerText = gcash.toFixed(2);
-  document.getElementById("bpi").innerText = bpi.toFixed(2);
+function calcAll(){
+  let total=0;
+  tableBody().querySelectorAll(".total").forEach(c=>total+=+c.innerText||0);
+  document.getElementById("grand").innerText=total.toFixed(2);
 }
 
-/* SAVE */
-async function saveData() {
+/* LOCAL SAVE (MAIN PROTECTION) */
+function saveLocal(){
   const data=[];
-
-  document.querySelectorAll("#table tbody tr").forEach(r=>{
-    if (!r.classList.contains("subtotal")) {
+  tableBody().querySelectorAll("tr").forEach(r=>{
+    if(!r.classList.contains("subtotal")){
       data.push({
-        group: r.dataset.group,
-        name: r.cells[0].children[0].value,
-        product: r.cells[1].children[0].value,
-        qty: r.cells[2].children[0].value,
-        price: r.cells[3].children[0].value,
-        payment: r.cells[5].children[0].value,
-        received: r.cells[6].children[0].value
+        g:r.dataset.group,
+        n:r.cells[0].children[0].value,
+        p:r.cells[1].children[0].value,
+        q:r.cells[2].children[0].value,
+        pr:r.cells[3].children[0].value,
+        pay:r.cells[5].children[0].value,
+        rec:r.cells[6].children[0].value
       });
     }
   });
-
-  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Master-Key": API_KEY
-    },
-    body: JSON.stringify(data)
-  });
+  localStorage.setItem("backup",JSON.stringify(data));
 }
 
-/* AUTO SYNC EVERY 2s */
-setInterval(async () => {
-  if (isEditing) return;
+/* LOAD LOCAL FIRST */
+function loadLocal(){
+  const data=JSON.parse(localStorage.getItem("backup")||"[]");
+  if(data.length===0){addCustomer();return;}
 
-  const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-    headers: { "X-Master-Key": API_KEY }
-  });
-
-  const json = await res.json();
-  const data = json.record;
-
-  document.querySelector("#table tbody").innerHTML = "";
-
-  const groups = {};
+  const groups={};
   data.forEach(d=>{
-    if (!groups[d.group]) groups[d.group] = [];
-    groups[d.group].push(d);
+    if(!groups[d.g]) groups[d.g]=[];
+    groups[d.g].push(d);
   });
 
-  for (let g in groups) {
+  for(let g in groups){
     addCustomer();
-    groups[g].forEach(item => addItemRow(g, item));
+    groups[g].forEach(i=>addItem(g,{
+      name:i.n,product:i.p,qty:i.q,price:i.pr,received:i.rec
+    }));
   }
+}
 
-}, 2000);
+/* BACKGROUND SYNC ONLY (NO UI TOUCH) */
+setInterval(async ()=>{
+  if(isEditing) return;
+
+  const local=localStorage.getItem("backup")||"[]";
+
+  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
+    method:"PUT",
+    headers:{
+      "Content-Type":"application/json",
+      "X-Master-Key":API_KEY
+    },
+    body:local
+  });
+
+},3000);
 
 /* INIT */
-addCustomer();
+loadLocal();
 </script>
 
 </body>
