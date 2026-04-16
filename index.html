@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Stable POS System</title>
+<title>POS with Payment Summary</title>
 
 <style>
 body { font-family: Arial; margin:40px; }
@@ -10,14 +10,17 @@ table { width:100%; border-collapse: collapse; }
 th,td { border:1px solid #ddd; padding:8px; text-align:center; }
 th { background:#007bff; color:white; }
 .subtotal { background:#dff0d8; font-weight:bold; }
+button { margin-right:10px; padding:6px 10px; }
+.summary { margin-top:20px; font-size:16px; }
 </style>
 </head>
 
 <body>
 
-<h2>Stable POS (No Disappearing)</h2>
+<h2>Stable POS System</h2>
 
 <button onclick="addCustomer()">Add Customer</button>
+<button onclick="exportExcel()">Export to Excel</button>
 
 <table id="table">
 <thead>
@@ -29,15 +32,19 @@ th { background:#007bff; color:white; }
 <tbody></tbody>
 </table>
 
-<h3>Grand: ₱ <span id="grand">0</span></h3>
+<h3>Grand Total: ₱ <span id="grand">0</span></h3>
+
+<div class="summary">
+<strong>Cash: ₱ <span id="cashTotal">0</span></strong><br>
+<strong>GCash: ₱ <span id="gcashTotal">0</span></strong><br>
+<strong>BPI: ₱ <span id="bpiTotal">0</span></strong><br>
+<strong>Donated: ₱ <span id="donatedTotal">0</span></strong>
+</div>
 
 <script>
 const BIN_ID="YOUR_BIN_ID";
 const API_KEY="YOUR_API_KEY";
 
-let isEditing=false;
-
-/* PRODUCTS */
 const products={Coke:20,Pepsi:18,Water:10,Chips:15};
 
 /* ADD CUSTOMER */
@@ -59,17 +66,23 @@ function addItem(group,data={}){
   row.dataset.group=group;
 
   row.innerHTML=`
-  <td><input value="${data.name||""}" onfocus="isEditing=true" onblur="isEditing=false;saveLocal()"></td>
+  <td><input value="${data.name||""}" oninput="saveLocal()"></td>
   <td><select onchange="setPrice(this)">
     <option></option>
     ${Object.keys(products).map(p=>`<option ${data.product==p?"selected":""}>${p}</option>`)}
   </select></td>
-  <td><input type="number" value="${data.qty||1}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
+  <td><input type="number" value="${data.qty||1}" oninput="calc(this)"></td>
   <td><input type="number" value="${data.price||0}" oninput="calc(this)"></td>
   <td class="total">0</td>
-  <td><select onchange="calcAll()">
-    <option></option><option>Cash</option><option>GCash</option><option>BPI</option>
-  </select></td>
+  <td>
+    <select onchange="calcAll()">
+      <option></option>
+      <option>Cash</option>
+      <option>GCash</option>
+      <option>BPI</option>
+      <option>Donated</option>
+    </select>
+  </td>
   <td><input type="number" value="${data.received||0}" oninput="calc(this)"></td>
   <td class="change">0</td>
   <td><button onclick="addItem(${group})">+</button></td>
@@ -122,13 +135,32 @@ function updateSub(g){
   if(sub) sub.querySelector(".subVal").innerText=sum.toFixed(2);
 }
 
+/* TOTALS */
 function calcAll(){
-  let total=0;
-  tableBody().querySelectorAll(".total").forEach(c=>total+=+c.innerText||0);
-  document.getElementById("grand").innerText=total.toFixed(2);
+  let grand=0, cash=0, gcash=0, bpi=0, donated=0;
+
+  tableBody().querySelectorAll("tr").forEach(r=>{
+    if(!r.classList.contains("subtotal")){
+      const total=+r.cells[4].innerText||0;
+      const pay=r.cells[5].children[0].value;
+
+      grand+=total;
+
+      if(pay==="Cash") cash+=total;
+      if(pay==="GCash") gcash+=total;
+      if(pay==="BPI") bpi+=total;
+      if(pay==="Donated") donated+=total;
+    }
+  });
+
+  document.getElementById("grand").innerText=grand.toFixed(2);
+  document.getElementById("cashTotal").innerText=cash.toFixed(2);
+  document.getElementById("gcashTotal").innerText=gcash.toFixed(2);
+  document.getElementById("bpiTotal").innerText=bpi.toFixed(2);
+  document.getElementById("donatedTotal").innerText=donated.toFixed(2);
 }
 
-/* LOCAL SAVE (MAIN PROTECTION) */
+/* SAVE LOCAL */
 function saveLocal(){
   const data=[];
   tableBody().querySelectorAll("tr").forEach(r=>{
@@ -147,7 +179,7 @@ function saveLocal(){
   localStorage.setItem("backup",JSON.stringify(data));
 }
 
-/* LOAD LOCAL FIRST */
+/* LOAD */
 function loadLocal(){
   const data=JSON.parse(localStorage.getItem("backup")||"[]");
   if(data.length===0){addCustomer();return;}
@@ -166,22 +198,49 @@ function loadLocal(){
   }
 }
 
-/* BACKGROUND SYNC ONLY (NO UI TOUCH) */
-setInterval(async ()=>{
-  if(isEditing) return;
+/* EXPORT EXCEL */
+function exportExcel(){
+  let csv=[];
+  csv.push(["Name","Product","Qty","Price","Total","Payment","Received","Change"].join(","));
 
-  const local=localStorage.getItem("backup")||"[]";
+  let cash=0,gcash=0,bpi=0,donated=0;
 
-  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
-    method:"PUT",
-    headers:{
-      "Content-Type":"application/json",
-      "X-Master-Key":API_KEY
-    },
-    body:local
+  document.querySelectorAll("#table tbody tr").forEach(r=>{
+    if(!r.classList.contains("subtotal")){
+      const total=+r.cells[4].innerText||0;
+      const pay=r.cells[5].children[0].value;
+
+      if(pay==="Cash") cash+=total;
+      if(pay==="GCash") gcash+=total;
+      if(pay==="BPI") bpi+=total;
+      if(pay==="Donated") donated+=total;
+
+      csv.push([
+        r.cells[0].children[0].value,
+        r.cells[1].children[0].value,
+        r.cells[2].children[0].value,
+        r.cells[3].children[0].value,
+        r.cells[4].innerText,
+        pay,
+        r.cells[6].children[0].value,
+        r.cells[7].innerText
+      ].join(","));
+    }
   });
 
-},3000);
+  csv.push("");
+  csv.push("SUMMARY");
+  csv.push("Cash,"+cash.toFixed(2));
+  csv.push("GCash,"+gcash.toFixed(2));
+  csv.push("BPI,"+bpi.toFixed(2));
+  csv.push("Donated,"+donated.toFixed(2));
+
+  const blob=new Blob([csv.join("\n")],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="sales.csv";
+  a.click();
+}
 
 /* INIT */
 loadLocal();
