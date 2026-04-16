@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Business Tally (Fixed Group)</title>
+<title>Business Tally (Stable Final)</title>
 
 <style>
   body { font-family: Arial; margin: 40px; background: #f4f6f9; }
@@ -16,7 +16,7 @@
 
 <body>
 
-<h1>Business Sales Tally (Working Groups)</h1>
+<h1>Business Sales Tally (Stable Version)</h1>
 
 <button onclick="addCustomer()">Add Customer</button>
 <button onclick="saveData()">Save</button>
@@ -55,29 +55,23 @@ const products = {
   Chips: 15
 };
 
-/* ADD CUSTOMER (FIXED) */
-function addCustomer(data=null) {
-  const tbody = document.querySelector("#table tbody");
-  const groupId = Date.now();
+/* ADD CUSTOMER */
+function addCustomer() {
+  const id = Date.now();
+  addItemRow(id);
 
-  // FIRST ROW
-  addItemRow(groupId, data);
-
-  // SUBTOTAL ROW
-  const subtotalRow = document.createElement("tr");
-  subtotalRow.className = "subtotal";
-  subtotalRow.dataset.group = groupId;
-
-  subtotalRow.innerHTML = `
+  const subtotal = document.createElement("tr");
+  subtotal.className = "subtotal";
+  subtotal.dataset.group = id;
+  subtotal.innerHTML = `
     <td colspan="4">Customer Total</td>
     <td class="subtotalValue">0</td>
     <td></td><td></td><td></td><td></td>
   `;
-
-  tbody.appendChild(subtotalRow);
+  document.querySelector("#table tbody").appendChild(subtotal);
 }
 
-/* ADD ITEM (FIXED INSERTION) */
+/* ADD ITEM */
 function addItemRow(groupId, data={}) {
   const tbody = document.querySelector("#table tbody");
 
@@ -85,41 +79,37 @@ function addItemRow(groupId, data={}) {
   row.dataset.group = groupId;
 
   row.innerHTML = `
-    <td><input value="${data?.name||""}"></td>
+    <td><input value="${data.name||""}"></td>
     <td>
       <select onchange="autoPrice(this)">
         <option></option>
         ${Object.keys(products).map(p =>
-          `<option ${data?.product===p?"selected":""}>${p}</option>`
+          `<option ${data.product===p?"selected":""}>${p}</option>`
         ).join("")}
       </select>
     </td>
-    <td><input type="number" value="${data?.qty||1}" oninput="calc(this)"></td>
-    <td><input type="number" value="${data?.price||0}" oninput="calc(this)"></td>
+    <td><input type="number" value="${data.qty||1}" oninput="calc(this)"></td>
+    <td><input type="number" value="${data.price||0}" oninput="calc(this)"></td>
     <td class="total">0</td>
     <td>
       <select onchange="calcAll()">
         <option></option>
-        <option ${data?.payment==="Cash"?"selected":""}>Cash</option>
-        <option ${data?.payment==="GCash"?"selected":""}>GCash</option>
-        <option ${data?.payment==="BPI"?"selected":""}>BPI</option>
+        <option ${data.payment==="Cash"?"selected":""}>Cash</option>
+        <option ${data.payment==="GCash"?"selected":""}>GCash</option>
+        <option ${data.payment==="BPI"?"selected":""}>BPI</option>
       </select>
     </td>
-    <td><input type="number" value="${data?.received||0}" oninput="calc(this)"></td>
+    <td><input type="number" value="${data.received||0}" oninput="calc(this)"></td>
     <td class="change">0</td>
     <td><button onclick="addItemRow(${groupId})">+ Item</button></td>
   `;
 
-  // FIND SUBTOTAL
   const subtotal = [...tbody.children].find(r =>
     r.classList.contains("subtotal") && r.dataset.group == groupId
   );
 
-  if (subtotal) {
-    tbody.insertBefore(row, subtotal);
-  } else {
-    tbody.appendChild(row);
-  }
+  if (subtotal) tbody.insertBefore(row, subtotal);
+  else tbody.appendChild(row);
 }
 
 /* AUTO PRICE */
@@ -130,7 +120,7 @@ function autoPrice(sel) {
   calc(row.cells[2]);
 }
 
-/* CALCULATIONS */
+/* CALC */
 function calc(input) {
   const row = input.closest("tr");
   const qty = +row.cells[2].children[0].value;
@@ -151,17 +141,17 @@ function calc(input) {
 /* SUBTOTAL */
 function updateSubtotal(groupId) {
   let sum = 0;
-  let subtotalRow;
+  let subtotal;
 
   document.querySelectorAll("#table tbody tr").forEach(r=>{
     if (r.dataset.group == groupId) {
-      if (r.classList.contains("subtotal")) subtotalRow = r;
+      if (r.classList.contains("subtotal")) subtotal = r;
       else sum += +r.cells[4].innerText || 0;
     }
   });
 
-  if (subtotalRow)
-    subtotalRow.querySelector(".subtotalValue").innerText = sum.toFixed(2);
+  if (subtotal)
+    subtotal.querySelector(".subtotalValue").innerText = sum.toFixed(2);
 }
 
 /* TOTALS */
@@ -186,7 +176,7 @@ function calcAll() {
   document.getElementById("bpi").innerText = bpi.toFixed(2);
 }
 
-/* SAVE */
+/* SAVE (NO AUTO LOAD AFTER) */
 async function saveData() {
   const data=[];
 
@@ -213,10 +203,10 @@ async function saveData() {
     body: JSON.stringify(data)
   });
 
-  alert("Saved!");
+  alert("Saved successfully!");
 }
 
-/* LOAD */
+/* LOAD ONLY WHEN CLICKED */
 async function loadData() {
   const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
     headers: { "X-Master-Key": API_KEY }
@@ -228,19 +218,18 @@ async function loadData() {
   document.querySelector("#table tbody").innerHTML = "";
 
   const groups = {};
-
   data.forEach(d=>{
     if (!groups[d.group]) groups[d.group] = [];
     groups[d.group].push(d);
   });
 
   for (let g in groups) {
-    addCustomer(groups[g][0]);
+    addCustomer();
     groups[g].forEach(item => addItemRow(g, item));
   }
 }
 
-/* INIT */
+/* INIT (LOAD ONCE ONLY) */
 loadData();
 </script>
 
