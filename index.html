@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Business Tally (Stable Final)</title>
+<title>Business Tally (Auto Sync Stable)</title>
 
 <style>
   body { font-family: Arial; margin: 40px; background: #f4f6f9; }
@@ -16,11 +16,10 @@
 
 <body>
 
-<h1>Business Sales Tally (Stable Version)</h1>
+<h1>Business Sales Tally (Auto Sync)</h1>
 
 <button onclick="addCustomer()">Add Customer</button>
 <button onclick="saveData()">Save</button>
-<button onclick="loadData()">Refresh</button>
 
 <table id="table">
 <thead>
@@ -47,6 +46,8 @@
 <script>
 const BIN_ID = "YOUR_BIN_ID";
 const API_KEY = "YOUR_API_KEY";
+
+let isEditing = false;
 
 const products = {
   Coke: 20,
@@ -79,7 +80,7 @@ function addItemRow(groupId, data={}) {
   row.dataset.group = groupId;
 
   row.innerHTML = `
-    <td><input value="${data.name||""}"></td>
+    <td><input value="${data.name||""}" onfocus="isEditing=true" onblur="isEditing=false"></td>
     <td>
       <select onchange="autoPrice(this)">
         <option></option>
@@ -88,8 +89,8 @@ function addItemRow(groupId, data={}) {
         ).join("")}
       </select>
     </td>
-    <td><input type="number" value="${data.qty||1}" oninput="calc(this)"></td>
-    <td><input type="number" value="${data.price||0}" oninput="calc(this)"></td>
+    <td><input type="number" value="${data.qty||1}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
+    <td><input type="number" value="${data.price||0}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
     <td class="total">0</td>
     <td>
       <select onchange="calcAll()">
@@ -99,7 +100,7 @@ function addItemRow(groupId, data={}) {
         <option ${data.payment==="BPI"?"selected":""}>BPI</option>
       </select>
     </td>
-    <td><input type="number" value="${data.received||0}" oninput="calc(this)"></td>
+    <td><input type="number" value="${data.received||0}" oninput="calc(this)" onfocus="isEditing=true" onblur="isEditing=false"></td>
     <td class="change">0</td>
     <td><button onclick="addItemRow(${groupId})">+ Item</button></td>
   `;
@@ -112,15 +113,7 @@ function addItemRow(groupId, data={}) {
   else tbody.appendChild(row);
 }
 
-/* AUTO PRICE */
-function autoPrice(sel) {
-  const row = sel.closest("tr");
-  const p = sel.value;
-  if (products[p]) row.cells[3].children[0].value = products[p];
-  calc(row.cells[2]);
-}
-
-/* CALC */
+/* CALCULATIONS */
 function calc(input) {
   const row = input.closest("tr");
   const qty = +row.cells[2].children[0].value;
@@ -138,7 +131,6 @@ function calc(input) {
   calcAll();
 }
 
-/* SUBTOTAL */
 function updateSubtotal(groupId) {
   let sum = 0;
   let subtotal;
@@ -154,7 +146,6 @@ function updateSubtotal(groupId) {
     subtotal.querySelector(".subtotalValue").innerText = sum.toFixed(2);
 }
 
-/* TOTALS */
 function calcAll() {
   let grand=0, cash=0, gcash=0, bpi=0;
 
@@ -176,7 +167,7 @@ function calcAll() {
   document.getElementById("bpi").innerText = bpi.toFixed(2);
 }
 
-/* SAVE (NO AUTO LOAD AFTER) */
+/* SAVE */
 async function saveData() {
   const data=[];
 
@@ -202,12 +193,12 @@ async function saveData() {
     },
     body: JSON.stringify(data)
   });
-
-  alert("Saved successfully!");
 }
 
-/* LOAD ONLY WHEN CLICKED */
-async function loadData() {
+/* AUTO SYNC EVERY 2s */
+setInterval(async () => {
+  if (isEditing) return;
+
   const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
     headers: { "X-Master-Key": API_KEY }
   });
@@ -227,10 +218,11 @@ async function loadData() {
     addCustomer();
     groups[g].forEach(item => addItemRow(g, item));
   }
-}
 
-/* INIT (LOAD ONCE ONLY) */
-loadData();
+}, 2000);
+
+/* INIT */
+addCustomer();
 </script>
 
 </body>
