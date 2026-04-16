@@ -1,187 +1,100 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Clean POS</title>
-
 <style>
-body { font-family: Arial; margin:40px; }
-table { width:100%; border-collapse: collapse; }
-th,td { border:1px solid #ddd; padding:8px; text-align:center; }
-th { background:#007bff; color:white; }
-.subtotal { background:#dff0d8; font-weight:bold; }
-button { margin-right:10px; padding:6px 10px; }
-.summary { margin-top:20px; }
+body {
+  font-family: Arial, sans-serif;
+  margin: 30px;
+  background: linear-gradient(135deg, #fff7e6, #ffe0b2);
+}
+
+/* HEADER */
+h2 {
+  color: #ff6f00;
+  margin-bottom: 20px;
+}
+
+/* BUTTONS */
+button {
+  background: linear-gradient(135deg, #ff9800, #ffc107);
+  border: none;
+  color: #fff;
+  padding: 8px 14px;
+  margin-right: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+}
+button:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+/* TABLE */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* HEADER ROW */
+th {
+  background: linear-gradient(135deg, #ff9800, #ffb300);
+  color: white;
+  padding: 10px;
+}
+
+/* CELLS */
+td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+/* INPUTS */
+input, select {
+  width: 100%;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  transition: 0.2s;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: #ff9800;
+  box-shadow: 0 0 5px rgba(255,152,0,0.5);
+}
+
+/* SUBTOTAL ROW */
+.subtotal {
+  background: #fff3e0;
+  font-weight: bold;
+  color: #e65100;
+}
+
+/* TOTAL DISPLAY */
+h3 {
+  margin-top: 20px;
+  color: #e65100;
+}
+
+/* SUMMARY BOX */
+.summary {
+  margin-top: 15px;
+  padding: 15px;
+  background: #fff8e1;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.summary span {
+  font-weight: bold;
+  color: #ff6f00;
+}
+
+/* CHANGE COLORS */
+.change {
+  font-weight: bold;
+}
 </style>
-</head>
-
-<body>
-
-<h2>POS System (Clean Start)</h2>
-
-<button onclick="addCustomer()">Add Customer</button>
-<button onclick="exportExcel()">Export to Excel</button>
-
-<table id="table">
-<thead>
-<tr>
-<th>Name</th><th>Product</th><th>Qty</th><th>Price</th>
-<th>Total</th><th>Payment</th><th>Received</th><th>Change</th><th>Action</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-
-<h3>Grand Total: ₱ <span id="grand">0</span></h3>
-
-<div class="summary">
-Cash: ₱ <span id="cashTotal">0</span><br>
-GCash: ₱ <span id="gcashTotal">0</span><br>
-BPI: ₱ <span id="bpiTotal">0</span><br>
-Donated: ₱ <span id="donatedTotal">0</span>
-</div>
-
-<script>
-const products={Coke:20,Pepsi:18,Water:10,Chips:15};
-
-/* ADD CUSTOMER */
-function addCustomer(){
-  const id=Date.now();
-  addItem(id);
-
-  const sub=document.createElement("tr");
-  sub.className="subtotal";
-  sub.dataset.group=id;
-  sub.innerHTML=`<td colspan="4">Customer Total</td>
-  <td class="subVal">0</td><td colspan="4"></td>`;
-  tableBody().appendChild(sub);
-}
-
-/* ADD ITEM */
-function addItem(group){
-  const row=document.createElement("tr");
-  row.dataset.group=group;
-
-  row.innerHTML=`
-  <td><input></td>
-  <td><select onchange="setPrice(this)">
-    <option></option>
-    ${Object.keys(products).map(p=>`<option>${p}</option>`)}
-  </select></td>
-  <td><input type="number" value="1" oninput="calc(this)"></td>
-  <td><input type="number" value="0" oninput="calc(this)"></td>
-  <td class="total">0</td>
-  <td>
-    <select onchange="calcAll()">
-      <option></option>
-      <option>Cash</option>
-      <option>GCash</option>
-      <option>BPI</option>
-      <option>Donated</option>
-    </select>
-  </td>
-  <td><input type="number" value="0" oninput="calc(this)"></td>
-  <td class="change">0</td>
-  <td><button onclick="addItem(${group})">+</button></td>
-  `;
-
-  const sub=findSubtotal(group);
-  if(sub) tableBody().insertBefore(row,sub);
-  else tableBody().appendChild(row);
-}
-
-/* HELPERS */
-function tableBody(){return document.querySelector("#table tbody");}
-function findSubtotal(g){
-  return [...tableBody().children].find(r=>r.dataset.group==g && r.classList.contains("subtotal"));
-}
-
-/* CALCULATIONS */
-function setPrice(sel){
-  const row=sel.closest("tr");
-  const p=sel.value;
-  if(products[p]) row.cells[3].children[0].value=products[p];
-  calc(row.cells[2]);
-}
-
-function calc(input){
-  const r=input.closest("tr");
-  const qty=+r.cells[2].children[0].value;
-  const price=+r.cells[3].children[0].value;
-  const rec=+r.cells[6].children[0].value;
-
-  const total=qty*price;
-  const change=rec-total;
-
-  r.cells[4].innerText=total.toFixed(2);
-  r.cells[7].innerText=change.toFixed(2);
-  r.cells[7].style.color=change<0?"red":"green";
-
-  updateSub(r.dataset.group);
-  calcAll();
-}
-
-function updateSub(g){
-  let sum=0,sub;
-  tableBody().querySelectorAll("tr").forEach(r=>{
-    if(r.dataset.group==g){
-      if(r.classList.contains("subtotal")) sub=r;
-      else sum+=+r.cells[4].innerText||0;
-    }
-  });
-  if(sub) sub.querySelector(".subVal").innerText=sum.toFixed(2);
-}
-
-function calcAll(){
-  let grand=0,cash=0,gcash=0,bpi=0,donated=0;
-
-  tableBody().querySelectorAll("tr").forEach(r=>{
-    if(!r.classList.contains("subtotal")){
-      const total=+r.cells[4].innerText||0;
-      const pay=r.cells[5].children[0].value;
-
-      grand+=total;
-      if(pay==="Cash") cash+=total;
-      if(pay==="GCash") gcash+=total;
-      if(pay==="BPI") bpi+=total;
-      if(pay==="Donated") donated+=total;
-    }
-  });
-
-  document.getElementById("grand").innerText=grand.toFixed(2);
-  document.getElementById("cashTotal").innerText=cash.toFixed(2);
-  document.getElementById("gcashTotal").innerText=gcash.toFixed(2);
-  document.getElementById("bpiTotal").innerText=bpi.toFixed(2);
-  document.getElementById("donatedTotal").innerText=donated.toFixed(2);
-}
-
-/* EXPORT */
-function exportExcel(){
-  let csv=[];
-  csv.push(["Name","Product","Qty","Price","Total","Payment","Received","Change"].join(","));
-
-  document.querySelectorAll("#table tbody tr").forEach(r=>{
-    if(!r.classList.contains("subtotal")){
-      csv.push([
-        r.cells[0].children[0].value,
-        r.cells[1].children[0].value,
-        r.cells[2].children[0].value,
-        r.cells[3].children[0].value,
-        r.cells[4].innerText,
-        r.cells[5].children[0].value,
-        r.cells[6].children[0].value,
-        r.cells[7].innerText
-      ].join(","));
-    }
-  });
-
-  const blob=new Blob([csv.join("\n")],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="sales.csv";
-  a.click();
-}
-</script>
-
-</body>
-</html>
