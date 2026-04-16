@@ -2,132 +2,151 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Orange POS System</title>
+<title>Camp Youth System</title>
+
+<!-- FONT -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <style>
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Poppins', sans-serif;
   margin: 30px;
-  background: linear-gradient(135deg, #fff7e6, #ffe0b2);
+  background: linear-gradient(135deg, #fff3e0, #ffe0b2, #dcedc8);
 }
 
+/* TITLE */
 h2 {
-  color: #ff6f00;
+  color: #e65100;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
+/* BUTTONS */
 button {
-  background: linear-gradient(135deg, #ff9800, #ffc107);
+  background: linear-gradient(135deg, #ff9800, #ffb300);
   border: none;
   color: white;
-  padding: 8px 14px;
+  padding: 10px 14px;
   margin-right: 10px;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  transition: 0.2s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
 button:hover {
-  opacity: 0.9;
+  transform: translateY(-2px);
 }
 
+/* TABLE STYLE */
 table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   background: white;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
   margin-top: 15px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
 
+/* HEADER */
 th {
-  background: linear-gradient(135deg, #ff9800, #ffb300);
-  color: white;
-  padding: 10px;
+  background: linear-gradient(135deg, #ff9800, #ffd54f);
+  color: #fff;
+  padding: 12px;
+  font-weight: 600;
 }
 
+/* CELLS */
 td {
-  padding: 8px;
-  border-bottom: 1px solid #eee;
+  padding: 10px;
   text-align: center;
+  border-bottom: 1px solid #f1f1f1;
 }
 
+/* INPUTS */
 input, select {
   width: 100%;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid #ddd;
+  font-family: 'Poppins', sans-serif;
 }
 
 input:focus, select:focus {
-  border-color: #ff9800;
   outline: none;
-  box-shadow: 0 0 5px rgba(255,152,0,0.5);
+  border-color: #ff9800;
+  box-shadow: 0 0 6px rgba(255,152,0,0.4);
 }
 
+/* SUBTOTAL ROW */
 .subtotal {
-  background: #fff3e0;
-  font-weight: bold;
-  color: #e65100;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-weight: 600;
 }
 
+/* SUMMARY BOX */
 .summary {
   margin-top: 20px;
-  padding: 15px;
-  background: #fff8e1;
-  border-radius: 10px;
+  padding: 16px;
+  background: rgba(255, 248, 225, 0.9);
+  border-radius: 14px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
-.summary span {
-  font-weight: bold;
-  color: #ff6f00;
+/* TOTAL TEXT */
+h3 {
+  color: #e65100;
+  font-weight: 700;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🧾 Orange POS System</h2>
+<h2>🏕️ Youth Camp Management System</h2>
 
-<button onclick="addCustomer()">Add Customer</button>
-<button onclick="exportExcel()">Export to Excel</button>
+<button onclick="addCustomer()">Add Camper</button>
+<button onclick="exportExcel()">Export Report</button>
 
 <table id="table">
 <thead>
 <tr>
 <th>Name</th>
-<th>Product</th>
+<th>Activity</th>
 <th>Qty</th>
-<th>Price</th>
+<th>Fee</th>
 <th>Total</th>
-<th>Payment</th>
-<th>Received</th>
-<th>Change</th>
+<th>Payment Type</th>
+<th>Paid</th>
+<th>Balance</th>
 <th>Action</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 
-<h3>💰 Grand Total: ₱ <span id="grand">0</span></h3>
+<h3>💰 Camp Total: ₱ <span id="grand">0</span></h3>
 
 <div class="summary">
 💵 Cash: ₱ <span id="cashTotal">0</span><br>
 📱 GCash: ₱ <span id="gcashTotal">0</span><br>
-🏦 BPI: ₱ <span id="bpiTotal">0</span><br>
-🎁 Donated: ₱ <span id="donatedTotal">0</span>
+🏦 Bank: ₱ <span id="bpiTotal">0</span><br>
+🎁 Sponsored: ₱ <span id="donatedTotal">0</span>
 </div>
 
 <script>
-const products = {
-  Coke: 20,
-  Pepsi: 18,
-  Water: 10,
-  Chips: 15
+const activities = {
+  "Camping Fee": 500,
+  "Workshop": 300,
+  "Team Building": 200,
+  "Meal Plan": 150
 };
 
-/* ADD CUSTOMER */
+/* ADD CAMPER */
 function addCustomer() {
   const id = Date.now();
   addItem(id);
@@ -136,7 +155,7 @@ function addCustomer() {
   sub.className = "subtotal";
   sub.dataset.group = id;
   sub.innerHTML = `
-    <td colspan="4">Customer Total</td>
+    <td colspan="4">Camper Total</td>
     <td class="subVal">0</td>
     <td colspan="4"></td>
   `;
@@ -149,11 +168,11 @@ function addItem(group) {
   row.dataset.group = group;
 
   row.innerHTML = `
-    <td><input></td>
+    <td><input placeholder="Camper name"></td>
     <td>
       <select onchange="setPrice(this)">
         <option></option>
-        ${Object.keys(products).map(p => `<option>${p}</option>`).join("")}
+        ${Object.keys(activities).map(a => `<option>${a}</option>`).join("")}
       </select>
     </td>
     <td><input type="number" value="1" oninput="calc(this)"></td>
@@ -165,11 +184,11 @@ function addItem(group) {
         <option>Cash</option>
         <option>GCash</option>
         <option>BPI</option>
-        <option>Donated</option>
+        <option>Sponsored</option>
       </select>
     </td>
     <td><input type="number" value="0" oninput="calc(this)"></td>
-    <td class="change">0</td>
+    <td class="balance">0</td>
     <td><button onclick="addItem(${group})">+</button></td>
   `;
 
@@ -184,35 +203,35 @@ function findSubtotal(g) {
     .find(r => r.dataset.group == g && r.classList.contains("subtotal"));
 }
 
-/* PRICE AUTO */
+/* AUTO PRICE */
 function setPrice(sel) {
   const row = sel.closest("tr");
-  const p = sel.value;
-  if (products[p]) row.cells[3].children[0].value = products[p];
+  const act = sel.value;
+  if (activities[act]) row.cells[3].children[0].value = activities[act];
   calc(row.cells[2]);
 }
 
-/* CALC ROW */
+/* CALC */
 function calc(input) {
   const r = input.closest("tr");
 
   const qty = +r.cells[2].children[0].value;
-  const price = +r.cells[3].children[0].value;
-  const received = +r.cells[6].children[0].value;
+  const fee = +r.cells[3].children[0].value;
+  const paid = +r.cells[6].children[0].value;
 
-  const total = qty * price;
-  const change = received - total;
+  const total = qty * fee;
+  const balance = paid - total;
 
   r.cells[4].innerText = total.toFixed(2);
-  r.cells[7].innerText = change.toFixed(2);
-  r.cells[7].style.color = change < 0 ? "red" : "green";
+  r.cells[7].innerText = balance.toFixed(2);
+  r.cells[7].style.color = balance < 0 ? "#d32f2f" : "#2e7d32";
 
-  updateSubtotal(r.dataset.group);
+  updateSub(r.dataset.group);
   calcAll();
 }
 
 /* SUBTOTAL */
-function updateSubtotal(group) {
+function updateSub(group) {
   let sum = 0, sub;
 
   document.querySelectorAll("#table tbody tr").forEach(r => {
@@ -239,7 +258,7 @@ function calcAll() {
       if (pay === "Cash") cash += total;
       if (pay === "GCash") gcash += total;
       if (pay === "BPI") bpi += total;
-      if (pay === "Donated") donated += total;
+      if (pay === "Sponsored") donated += total;
     }
   });
 
@@ -250,11 +269,10 @@ function calcAll() {
   document.getElementById("donatedTotal").innerText = donated.toFixed(2);
 }
 
-/* EXPORT EXCEL */
+/* EXPORT */
 function exportExcel() {
   let csv = [];
-
-  csv.push(["Name","Product","Qty","Price","Total","Payment","Received","Change"].join(","));
+  csv.push(["Name","Activity","Qty","Fee","Total","Payment","Paid","Balance"].join(","));
 
   document.querySelectorAll("#table tbody tr").forEach(r => {
     if (!r.classList.contains("subtotal")) {
@@ -274,7 +292,7 @@ function exportExcel() {
   const blob = new Blob([csv.join("\n")], {type:"text/csv"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "sales.csv";
+  a.download = "camp-report.csv";
   a.click();
 }
 </script>
