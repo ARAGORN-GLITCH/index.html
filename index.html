@@ -2,9 +2,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Camp Youth System</title>
+<title>CAMP CALYE MANAGEMENT SYSTEM</title>
 
-<!-- FONT -->
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <style>
@@ -14,298 +13,255 @@ body {
   background: linear-gradient(135deg, #fff3e0, #ffe0b2, #dcedc8);
 }
 
-/* TITLE */
-h2 {
-  color: #e65100;
-  font-weight: 700;
-  letter-spacing: 1px;
-}
+h2 { color: #e65100; }
 
-/* BUTTONS */
 button {
-  background: linear-gradient(135deg, #ff9800, #ffb300);
+  background: linear-gradient(135deg, #ff9800, #ffc107);
   border: none;
   color: white;
-  padding: 10px 14px;
+  padding: 8px 14px;
   margin-right: 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  transition: 0.2s;
+}
+
+.card {
+  background: white;
+  margin-top: 15px;
+  padding: 15px;
+  border-radius: 12px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
-button:hover {
-  transform: translateY(-2px);
-}
-
-/* TABLE STYLE */
 table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: white;
-  border-radius: 14px;
-  overflow: hidden;
-  margin-top: 15px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  border-collapse: collapse;
+  margin-top: 10px;
 }
 
-/* HEADER */
 th {
-  background: linear-gradient(135deg, #ff9800, #ffd54f);
-  color: #fff;
-  padding: 12px;
-  font-weight: 600;
+  background: #ff9800;
+  color: white;
+  padding: 8px;
 }
 
-/* CELLS */
 td {
-  padding: 10px;
-  text-align: center;
-  border-bottom: 1px solid #f1f1f1;
-}
-
-/* INPUTS */
-input, select {
-  width: 100%;
   padding: 6px;
-  border-radius: 8px;
+  text-align: center;
+}
+
+input, select {
+  width: 95%;
+  padding: 6px;
+  border-radius: 6px;
   border: 1px solid #ddd;
-  font-family: 'Poppins', sans-serif;
 }
 
-input:focus, select:focus {
-  outline: none;
-  border-color: #ff9800;
-  box-shadow: 0 0 6px rgba(255,152,0,0.4);
+.totalBox {
+  font-weight: bold;
+  margin-top: 10px;
 }
 
-/* SUBTOTAL ROW */
-.subtotal {
-  background: #e8f5e9;
-  color: #2e7d32;
-  font-weight: 600;
-}
-
-/* SUMMARY BOX */
-.summary {
-  margin-top: 20px;
-  padding: 16px;
-  background: rgba(255, 248, 225, 0.9);
-  border-radius: 14px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
-
-/* TOTAL TEXT */
-h3 {
-  color: #e65100;
-  font-weight: 700;
+.paymentBox {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 2px solid #eee;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🏕️  Camp Calye Management System</h2>
+<h2>🏕️ CAMP CALYE !!!</h2>
 
-<button onclick="addCustomer()">Add Camper</button>
-<button onclick="exportExcel()">Export Report</button>
+<button onclick="addPerson()">Add Person</button>
+<button onclick="exportExcel()">Export Excel</button>
 
-<table id="table">
-<thead>
-<tr>
-<th>Name</th>
-<th>Activity</th>
-<th>Qty</th>
-<th>Fee</th>
-<th>Total</th>
-<th>Payment Type</th>
-<th>Paid</th>
-<th>Balance</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
+<div id="container"></div>
 
-<h3>💰 Total: ₱ <span id="grand">0</span></h3>
+<h3>💰 Grand Total: ₱ <span id="grand">0</span></h3>
 
-<div class="summary">
+<h3>
 💵 Cash: ₱ <span id="cashTotal">0</span><br>
 📱 GCash: ₱ <span id="gcashTotal">0</span><br>
-🏦 Bank: ₱ <span id="bpiTotal">0</span><br>
-  🫶 Donated: ₱ <span id="donatedTotal">0</span><br>
-🎁 Sponsored: ₱ <span id="donatedTotal">0</span>
-</div>
+🏦 BPI: ₱ <span id="bpiTotal">0</span><br>
+🎁 Donations: ₱ <span id="donatedTotal">0</span>
+</h3>
 
 <script>
-const activities = {
-  "Camping Fee": 3600,
-  "Suman (4pcs)": 99,
-  "Bracelet": 99,
-  "Kapeng Barako": 149,
-  "Bangus": 249,
-  "Bangus Spicy": 249,
-  "Tahong": 269,
-  "Tahong Spicy": 269,
-  "Tinapang GG": 269,
-  "Tinapang GG spicy": 269,
-  "Chicken Pastil": 199,
-  "Mixed Nuts": 169,
-  "Assorted Siopao": 149,
-  "Ube Siopao": 149,
-  "Chocolate Siopao": 149,
-  
+const products = {
+  "Camp": 3600,
+  "Workshop": 300,
+  "Food Package": 150,
+  "Game": 200
 };
 
-/* ADD CAMPER */
-function addCustomer() {
+/* ADD PERSON */
+function addPerson() {
   const id = Date.now();
-  addItem(id);
 
-  const sub = document.createElement("tr");
-  sub.className = "subtotal";
-  sub.dataset.group = id;
-  sub.innerHTML = `
-    <td colspan="4">Total</td>
-    <td class="subVal">0</td>
-    <td colspan="4"></td>
-  `;
-  document.querySelector("#table tbody").appendChild(sub);
-}
+  const card = document.createElement("div");
+  card.className = "card";
+  card.dataset.person = id;
 
-/* ADD ITEM */
-function addItem(group) {
-  const row = document.createElement("tr");
-  row.dataset.group = group;
+  card.innerHTML = `
+    <input placeholder="Person Name" style="width:100%; padding:8px; margin-bottom:10px;">
 
-  row.innerHTML = `
-    <td><input placeholder="Name"></td>
-    <td>
-      <select onchange="setPrice(this)">
-        <option></option>
-        ${Object.keys(activities).map(a => `<option>${a}</option>`).join("")}
-      </select>
-    </td>
-    <td><input type="number" value="1" oninput="calc(this)"></td>
-    <td><input type="number" value="0" oninput="calc(this)"></td>
-    <td class="total">0</td>
-    <td>
-      <select onchange="calcAll()">
+    <button onclick="addTransaction(${id})">+ Add Transaction</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Activity</th>
+          <th>Qty</th>
+          <th>Fee</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody class="body"></tbody>
+    </table>
+
+    <div class="paymentBox">
+      <select class="paymentType" onchange="calcAll()">
         <option></option>
         <option>Cash</option>
         <option>GCash</option>
         <option>BPI</option>
-        <option>Sponsored</option>
       </select>
-    </td>
-    <td><input type="number" value="0" oninput="calc(this)"></td>
-    <td class="balance">0</td>
-    <td><button onclick="addItem(${group})">+</button></td>
+
+      <input type="number" class="paidAmount" placeholder="Amount Paid" oninput="calcAll()">
+
+      <input type="number" class="donatedAmount" value="0" placeholder="Donation" oninput="calcAll()">
+
+      <div>
+        Change: ₱ <span class="change">0</span>
+      </div>
+    </div>
+
+    <div class="totalBox">
+      Person Total: ₱ <span class="total">0</span>
+    </div>
   `;
 
-  const sub = findSubtotal(group);
-  if (sub) document.querySelector("#table tbody").insertBefore(row, sub);
-  else document.querySelector("#table tbody").appendChild(row);
+  document.getElementById("container").appendChild(card);
+
+  addTransaction(id);
 }
 
-/* HELPERS */
-function findSubtotal(g) {
-  return [...document.querySelectorAll("#table tbody tr")]
-    .find(r => r.dataset.group == g && r.classList.contains("subtotal"));
+/* ADD TRANSACTION */
+function addTransaction(personId) {
+  const body = document.querySelector(`[data-person='${personId}'] .body`);
+
+  const row = document.createElement("tr");
+
+  row.innerHTML = `
+    <td>
+      <select onchange="setPrice(this)">
+        <option></option>
+        ${Object.keys(products).map(p => `<option>${p}</option>`).join("")}
+      </select>
+    </td>
+
+    <td><input value="1" oninput="calc(this)"></td>
+    <td><input value="0" oninput="calc(this)"></td>
+    <td class="t">0</td>
+  `;
+
+  body.appendChild(row);
+  calcAll();
 }
 
 /* AUTO PRICE */
 function setPrice(sel) {
-  const row = sel.closest("tr");
-  const act = sel.value;
-  if (activities[act]) row.cells[3].children[0].value = activities[act];
-  calc(row.cells[2]);
+  const r = sel.closest("tr");
+  r.cells[2].children[0].value = products[sel.value] || 0;
+  calc(sel);
 }
 
-/* CALC */
-function calc(input) {
-  const r = input.closest("tr");
+/* CALC ROW */
+function calc(el) {
+  const r = el.closest("tr");
 
-  const qty = +r.cells[2].children[0].value;
-  const fee = +r.cells[3].children[0].value;
-  const paid = +r.cells[6].children[0].value;
+  const qty = +r.cells[1].children[0].value;
+  const fee = +r.cells[2].children[0].value;
 
-  const total = qty * fee;
-  const balance = paid - total;
+  r.cells[3].innerText = (qty * fee).toFixed(2);
 
-  r.cells[4].innerText = total.toFixed(2);
-  r.cells[7].innerText = balance.toFixed(2);
-  r.cells[7].style.color = balance < 0 ? "#d32f2f" : "#2e7d32";
-
-  updateSub(r.dataset.group);
   calcAll();
 }
 
-/* SUBTOTAL */
-function updateSub(group) {
-  let sum = 0, sub;
-
-  document.querySelectorAll("#table tbody tr").forEach(r => {
-    if (r.dataset.group == group) {
-      if (r.classList.contains("subtotal")) sub = r;
-      else sum += +r.cells[4].innerText || 0;
-    }
-  });
-
-  if (sub) sub.querySelector(".subVal").innerText = sum.toFixed(2);
-}
-
-/* TOTALS */
+/* 🔥 FINAL FIX (DONATION INCLUDED IN GRAND TOTAL) */
 function calcAll() {
-  let grand = 0, cash = 0, gcash = 0, bpi = 0, donated = 0;
+  let grand = 0;
 
-  document.querySelectorAll("#table tbody tr").forEach(r => {
-    if (!r.classList.contains("subtotal")) {
-      const total = +r.cells[4].innerText || 0;
-      const pay = r.cells[5].children[0].value;
+  let cash = 0;
+  let gcash = 0;
+  let bpi = 0;
+  let donated = 0;
 
-      grand += total;
+  document.querySelectorAll(".card").forEach(card => {
 
-      if (pay === "Cash") cash += total;
-      if (pay === "GCash") gcash += total;
-      if (pay === "BPI") bpi += total;
-      if (pay === "Sponsored") donated += total;
-    }
+    let total = 0;
+
+    card.querySelectorAll(".t").forEach(t => {
+      total += +t.innerText || 0;
+    });
+
+    card.querySelector(".total").innerText = total.toFixed(2);
+
+    const paymentType = card.querySelector(".paymentType").value;
+    const paid = +card.querySelector(".paidAmount").value || 0;
+    const donate = +card.querySelector(".donatedAmount").value || 0;
+
+    const change = paid - total - donate;
+
+    card.querySelector(".change").innerText = change.toFixed(2);
+
+    // ✔ GRAND INCLUDES DONATION
+    grand += total + donate;
+
+    if (paymentType === "Cash") cash += paid;
+    if (paymentType === "GCash") gcash += paid;
+    if (paymentType === "BPI") bpi += paid;
+
+    donated += donate;
   });
 
   document.getElementById("grand").innerText = grand.toFixed(2);
+
   document.getElementById("cashTotal").innerText = cash.toFixed(2);
   document.getElementById("gcashTotal").innerText = gcash.toFixed(2);
   document.getElementById("bpiTotal").innerText = bpi.toFixed(2);
   document.getElementById("donatedTotal").innerText = donated.toFixed(2);
 }
 
-/* EXPORT */
+/* 📊 EXPORT EXCEL */
 function exportExcel() {
-  let csv = [];
-  csv.push(["Name","Activity","Qty","Fee","Total","Payment","Paid","Balance"].join(","));
+  let rows = [];
 
-  document.querySelectorAll("#table tbody tr").forEach(r => {
-    if (!r.classList.contains("subtotal")) {
-      csv.push([
-        r.cells[0].children[0].value,
-        r.cells[1].children[0].value,
-        r.cells[2].children[0].value,
-        r.cells[3].children[0].value,
-        r.cells[4].innerText,
-        r.cells[5].children[0].value,
-        r.cells[6].children[0].value,
-        r.cells[7].innerText
-      ].join(","));
-    }
+  document.querySelectorAll("table").forEach(table => {
+    table.querySelectorAll("tr").forEach(tr => {
+      let row = [];
+
+      tr.querySelectorAll("th,td").forEach(td => {
+        let val =
+          td.querySelector("input")?.value ||
+          td.querySelector("select")?.value ||
+          td.innerText;
+
+        row.push(val);
+      });
+
+      rows.push(row.join(","));
+    });
   });
 
-  const blob = new Blob([csv.join("\n")], {type:"text/csv"});
+  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
   const a = document.createElement("a");
+
   a.href = URL.createObjectURL(blob);
-  a.download = "camp-report.csv";
+  a.download = "camp_date";
   a.click();
 }
 </script>
